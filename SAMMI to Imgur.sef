@@ -6,8 +6,6 @@ Upload images to a specific Imgur account, create albums and upload to those alb
 1.0
 [insert_external]
 [insert_command]
-[insert_hook]
-[insert_command]
 SAMMI.extCommand('Imgur Crediantals', 3355443, 52, {
     'client_id': ['Client ID', 14, ''],
 	'client_secret': ['Client Secret', 14, ''],
