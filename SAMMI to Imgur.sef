@@ -1,0 +1,319 @@
+[extension_name]
+SAMMI to Imgur by Phat32
+[extension_info]
+Upload images to a specific Imgur account, create albums and upload to those albums
+[extension_version]
+1.0
+[insert_external]
+[insert_command]
+[insert_hook]
+[insert_command]
+SAMMI.extCommand('Imgur Crediantals', 3355443, 52, {
+    'client_id': ['Client ID', 14, ''],
+	'client_secret': ['Client Secret', 14, ''],
+	'refresh_token': ['Refresh Token', 14, ''],
+	'file_name': ['File Name', 14, ''],
+	});
+SAMMI.extCommand('Save to Imgur', 3355443, 52, {
+	'image': ['Base64 Encoded Image', 15, ''],
+	'title': ['Title', 15, ''],
+	'description': ['Description', 15, ''],
+	'album': ['Album ID', 15, ''],
+	'variable': ['Imgur URL', 14, ''],
+	});
+SAMMI.extCommand('Create Imgur Album', 3355443, 52, {
+	'title': ['Title', 15, ''],
+	'description': ['Description', 15, ''],
+	'variable': ['Album ID', 14, ''],
+	'variable2': ['Album URL', 14, '']
+	});
+SAMMI.extCommand('Share Imgur Album', 3355443, 52, {
+	'album': ['Album ID', 15, ''],
+	'title': ['Gallery Title', 15, ''],
+	'variable': ['Gallery URL', 14, '']
+	});
+SAMMI.extCommand('Get Imgur Album Images', 3355443, 52, {
+	'album': ['Album ID', 15, ''],
+	'variable': ['Album Images', 14, '']
+	});
+[insert_hook]
+case "Imgur Crediantals": {
+  ImgurCrediantals(SAMMIJSON.client_id, SAMMIJSON.client_secret, SAMMIJSON.refresh_token, SAMMIJSON.file_name, SAMMIJSON.FromButton);
+} break
+case "Save to Imgur": {
+  SaveToImgur(SAMMIJSON.image, SAMMIJSON.title, SAMMIJSON.description, SAMMIJSON.album, SAMMIJSON.variable, SAMMIJSON.FromButton);
+} break
+case "Create Imgur Album": {
+  CreateAlbum(SAMMIJSON.title, SAMMIJSON.description, SAMMIJSON.variable, SAMMIJSON.variable2, SAMMIJSON.FromButton);
+} break
+case "Share Imgur Album": {
+	ShareAlbum(SAMMIJSON.album, SAMMIJSON.title, SAMMIJSON.variable, SAMMIJSON.FromButton);
+} break
+case "Get Imgur Album Images": {
+	GetAlbumImages(SAMMIJSON.album, SAMMIJSON.variable, SAMMIJSON.FromButton);
+} break
+[insert_script]
+function ImgurCrediantals(client_id, client_secret, refresh_token, file_name, btn) 
+{	
+	var formdata = new FormData()
+	formdata.append("refresh_token", refresh_token)
+	formdata.append("client_id", client_id)
+	formdata.append("client_secret", client_secret)
+	formdata.append("grant_type", "refresh_token")	
+
+	var requestOptions = { 
+							method: 'POST',
+  							body: formdata,
+  							redirect: 'follow'
+						}
+
+	fetch("https://api.imgur.com/oauth2/token", requestOptions)
+  		.then(response => {
+			switch(response.status){
+				case 200:
+					return ((response.json()));
+					break;
+				case 401:
+					SAMMI.alert('Imgur Settings Error - Authentication Problem');
+					return ('error'); 
+					break;
+				case 404:
+					SAMMI.alert('Imgur Settings Error - No Response');
+					return ('error'); 
+					break;
+				default:
+					SAMMI.alert('Imgur Settings Error - Response Code: ' + response.status);
+					return ('error');
+					break;
+			}
+		})
+  		.then(result => {
+			  SAMMI.setVariable('client_id', client_id, 'ImgurSettings');
+			  SAMMI.setVariable('access_token', result.access_token, 'ImgurSettings');			  
+			  SAMMI.setVariable('file_name', file_name, 'ImgurSettings');
+		})
+  		.catch(error => SAMMI.alert(error));
+}
+
+function SaveToImgur(image, title, description, album, variable, btn) 
+{		
+	SAMMI.getVariable('access_token', 'ImgurSettings')
+	  	.then(token => {
+			var myHeaders = new Headers();
+			myHeaders.append("Authorization", "Bearer " + token.Value);
+
+			var formdata = new FormData();
+			formdata.append("image", image);
+			formdata.append("title", title);
+
+			if (album != null)
+			{
+				formdata.append("album", album);
+			}
+
+			formdata.append("description", description);
+
+			var requestOptions = {
+				method: 'POST',
+				headers: myHeaders,
+				body: formdata,
+				redirect: 'follow'
+			};
+
+			fetch("https://api.imgur.com/3/image", requestOptions)
+			.then(response => {
+				switch(response.status){
+					case 200:
+						return ((response.json()));
+						break;
+					case 401:
+						SAMMI.alert('Imgur Error - Authentication Problem');
+						return ('error'); 
+						break;
+					case 404:
+						SAMMI.alert('Imgur Error - No Response');
+						return ('error'); 
+						break;
+					default:
+						SAMMI.alert('Imgur Error - Response Code: ' + response.status);
+						return ((response.json()));
+						break;
+				}
+			})
+			.then(result => {
+				if (result.success == 1) {
+					if (variable !=  "") {
+						SAMMI.setVariable(variable, 'https://imgur.com/' + result.data.id + '.png', btn)
+					}
+				}
+				else {
+					SAMMI.alert(result.data.error.message)
+				}
+			})
+			.catch(error => SAMMI.alert('Imgur Error ' + error));
+		})
+	  	.catch(error => SAMMI.alert('Token Error ' + error));
+}
+
+function CreateAlbum(title, description, variable, variable2, btn) 
+{		
+	SAMMI.getVariable('access_token', 'ImgurSettings')
+	  	.then(token => {
+			var myHeaders = new Headers();
+			myHeaders.append("Authorization", "Bearer " + token.Value);
+
+			var formdata = new FormData();
+			formdata.append("title", title);
+			formdata.append("description", description);
+
+			var requestOptions = {
+				method: 'POST',
+				headers: myHeaders,
+				body: formdata,
+				redirect: 'follow'
+			};
+
+			fetch("https://api.imgur.com/3/album", requestOptions)
+			.then(response => {
+				switch(response.status){
+					case 200:
+						return ((response.json()));
+						break;
+					case 401:
+						SAMMI.alert('Imgur Error - Authentication Problem');
+						return ('error'); 
+						break;
+					case 404:
+						SAMMI.alert('Imgur Error - No Response');
+						return ('error'); 
+						break;
+					default:
+						SAMMI.alert('Imgur Error - Response Code: ' + response.status);
+						return ((response.json()));
+						break;
+				}
+			})
+			.then(result => {			
+				if (result.success == 1) {
+					if (variable !=  "") {
+						SAMMI.setVariable(variable, result.data.id, btn)
+					}
+					if (variable2 !=  "") {
+						SAMMI.setVariable(variable2, "https://imgur.com/a/" + result.data.id, btn)
+					}
+				}
+				else {
+					SAMMI.alert(result.data.error)
+				}	
+			})
+			.catch(error => SAMMI.alert('Imgur Error ' + error));
+		})
+	  	.catch(error => SAMMI.alert('Token Error ' + error));
+}
+
+function ShareAlbum(album, title, variable, btn) 
+{		
+	SAMMI.getVariable('access_token', 'ImgurSettings')
+	  	.then(token => {
+			var myHeaders = new Headers();
+			myHeaders.append("Authorization", "Bearer " + token.Value);
+
+			var formdata = new FormData();
+			formdata.append("title", title);
+			formdata.append("topic", "Funny");
+			formdata.append("mature", "0");
+			formdata.append("tags", "twitch,live stream,polaroid,obs,lioranboard");
+
+			var requestOptions = {
+				method: 'POST',
+				headers: myHeaders,
+				body: formdata,
+				redirect: 'follow'
+			};
+
+			fetch("https://api.imgur.com/3/gallery/album/" + album, requestOptions)
+			.then(response => {
+				switch(response.status){
+					case 200:
+						return ((response.json()));
+						break;
+					case 401:
+						SAMMI.alert('Imgur Error - Authentication Problem');
+						return ('error'); 
+						break;
+					case 404:
+						SAMMI.alert('Imgur Error - No Response');
+						return ('error'); 
+						break;
+					default:
+						SAMMI.alert('Imgur Error - Response Code: ' + response.status);
+						return ((response.json()));
+						break;
+				}
+			})
+			.then(result => {	
+				if (result.success == 1)		
+				{
+					if (variable !=  "") {
+						SAMMI.setVariable(variable, "https://imgur.com/gallery/" + result.data.id, btn)
+					}
+				}				
+				else 
+				{
+					SAMMI.alert(result.data.error)
+				}
+			})
+			.catch(error => SAMMI.alert('Imgur Error ' + error));
+		})
+	  	.catch(error => SAMMI.alert('Token Error ' + error));
+}
+
+function GetAlbumImages(album, variable, btn) 
+{		
+	SAMMI.getVariable('client_id', 'ImgurSettings')
+	.then(token => {
+			var myHeaders = new Headers();
+			myHeaders.append("Authorization", "Client-ID " + token.Value);
+		var requestOptions = {
+			method: 'GET',
+			headers: myHeaders,
+			redirect: 'follow'
+		};
+
+		fetch("https://api.imgur.com/3/album/" + album + "/images", requestOptions)
+		.then(response => {
+			switch(response.status){
+				case 200:
+					return ((response.json()));
+					break;
+				case 401:
+					SAMMI.alert('Imgur Error - Authentication Problem');
+					return ((response.json()));
+					break;
+				case 404:
+					SAMMI.alert('Imgur Error - No Response');
+					return ((response.json()));
+					break;
+				default:
+					SAMMI.alert('Imgur Error - Response Code: ' + response.status);
+					return ((response.json()));
+					break;
+			}
+		})
+		.then(result => {			
+			if (result.success == 1) {
+				if (variable !=  "") {
+					SAMMI.setVariable(variable, result.data, btn)
+				}
+			}
+			else {
+				SAMMI.alert(result.data.error)
+			}	
+		})
+		.catch(error => SAMMI.alert('Imgur Error ' + error));
+	})
+	.catch(error => SAMMI.alert('Token Error ' + error));
+}
+
+[insert_over]
+{ "deck_data": "{ \"background_color\": 4210752.0, \"on\": true, \"grid_y\": 7.0, \"snap_grid\": true, \"encryption_key\": \"GFzgN4UeLhigiMq4\", \"lb_version\": \"2.07.5\", \"background_image\": \"\", \"encrypted\": false, \"adaptive_resizing\": true, \"unique_id\": \"20220312042402638467487\", \"button_list\": [ { \"color\": 11645361.0, \"persistent\": 0.0, \"text\": \"\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ ], \"press_type\": 0.0, \"x\": 0.77777777777777779011358916250174, \"border\": 1.0, \"image\": \"C:\\\\Users\\\\tom\\\\OneDrive\\\\Stream\\\\LioranBoard Receiver(PC)\\\\image\\\\arrow left.png\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.11111111111111116045435665000696, \"button_id\": \"ID116\", \"button_duration\": 0.0, \"y\": 0.0, \"switch_deck\": \"Previous Deck\", \"height\": 0.14285714285714284921269268124888, \"release_list\": [ ], \"functions\": 512.0, \"stretch\": 1.0 }, { \"color\": 11645361.0, \"persistent\": 0.0, \"text\": \"\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ ], \"press_type\": 0.0, \"x\": 0.88888888888888883954564334999304, \"border\": 1.0, \"image\": \"C:\\\\Users\\\\tom\\\\OneDrive\\\\Stream\\\\LioranBoard Receiver(PC)\\\\image\\\\arrow right.png\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.11111111111111110494320541874913, \"button_id\": \"ID117\", \"button_duration\": 0.0, \"y\": 0.0, \"switch_deck\": \"Next Deck\", \"height\": 0.14285714285714284921269268124888, \"release_list\": [ ], \"functions\": 512.0, \"stretch\": 1.0 }, { \"color\": 12618550.0, \"persistent\": 1.0, \"text\": \"Settings\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ { \"cmd\": 5.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 400.0, \"b0\": \"Create an Imgur account and go here to create an application to upload the images with\\nUse the \\\"without a callback URL\\\" option when creating the application\\n======================================\\nhttps:\\\/\\\/api.imgur.com\\\/oauth2\\\/addclient\\n======================================\\n\\nCopy the Client ID and Secret into the fields below. To obtain the \\\"Refresh Token\\\", \\nreplace {CLIENTID} (including the brackets) with your ID and put that in your browser\\n===============================================================================\\nhttps:\\\/\\\/api.imgur.com\\\/oauth2\\\/authorize?client_id={CLIENTID}&response_type=token\\n===============================================================================\\n\\nYou will be re-directed back to the homepage of Imgur and the URL will contain the\\ndata we are looking for. It should look a little something like this\\n=====================================================================================================================================\\nhttps:\\\/\\\/imgur.com\\\/#access_token=###&expires_in=###&token_type=bearer&refresh_token={REFRESHTOKEN}&account_username=XXX&account_id=###\\n=====================================================================================================================================\\n\\nTake the info from after \\\"refresh_token=\\\" and before the \\\"&\\\" at the end. Everything\\nin the middle goes into the \\\"Refresh Token\\\"\", \"v0\": 2.0 }, { \"cmd\": 5.0, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 101.0, \"b0\": \"\\\"File Name\\\" is the name of the file to post to Imgur. To make this work the file must be\\ninside the Lioranboard directory. The easiest method is to set a file here and simply\\noverwrite it when going to upload. However if you wish you set this value from another\\nbutton set the varaible \\\"ImgurSettings.file_name\\\"\\n\\nEG. D:\\\\Misc\\\\Sammi\\\\polaroid.png\", \"v0\": 1.0 }, { \"cmd\": 0.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"refresh_token\": \"\", \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"file_name\": \"\", \"extcmd\": \"Imgur Crediantals\", \"client_secret\": \"\", \"album\": \"QXRkwpw\", \"client_id\": \"\", \"ext\": \"Transmitter\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 3.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 17.0, \"b0\": \"Set your Twitch username here for certain features to work correctly. It can be set directly or accessed from\\nglobal.twitch_accounts[]\", \"v0\": 1.0 }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"Twitch\", \"b2\": \"global.twitch_accounts[0]\" } ], \"press_type\": 0.0, \"x\": 0.0, \"border\": 2.0, \"image\": \"\", \"triggers\": [ { \"group_id\": \"\", \"type\": \"SAMMI Bridge Connected\", \"button_id\": \"ImgurSettings\", \"trg\": 10.0 } ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"{\\n\\\"access_token\\\":\\\"\\\",\\n\\\"client_id\\\":\\\"\\\",\\n\\\"username\\\":\\\"\\\",\\n\\\"images\\\":[]\\n}\", \"deck\": 8.0, \"width\": 0.22222222222222220988641083749826, \"button_id\": \"ImgurSettings\", \"button_duration\": 0.0, \"y\": 0.14285714285714284921269268124888, \"switch_deck\": \"\", \"height\": 0.28571428571428569842538536249776, \"release_list\": [ ], \"functions\": 2129.0, \"stretch\": false }, { \"color\": 11645361.0, \"persistent\": 1.0, \"text\": \"Do The Upload\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Get the image from ImgurSettings.file_name, get the size of the buffer and encode to Base64\", \"v0\": 4.0 }, { \"b1\": \"\\\/$ImgurSettings.file_name$\\\/\", \"cmd\": 110.0, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageBuffer\" }, { \"b1\": \"imageBufferSize\", \"cmd\": 113.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"ms\": 100.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageBuffer\" }, { \"b53\": \"\", \"b5\": \"\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"<=\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"==\", \"b11\": \"\", \"b9\": \"\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 12.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 3.0, \"v5\": 0.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 110.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 0.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"imageBufferSize\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"==\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"0\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"\", \"b6\": \"\", \"b10\": \"==\", \"b23\": \"\", \"v4\": 0.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 0.0, \"v8\": 0.0, \"v2\": 1.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"0\", \"b3\": \"imageEncoded\", \"cmd\": 117.0, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": 1.0, \"ms\": 110.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageBuffer\", \"b2\": \"imageBufferSize\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 5.0, \"vis\": 0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Do the upload and add the uploaded Url to ImgurSettings.images\", \"v0\": 4.0 }, { \"cmd\": 0.0, \"obsid\": \"Main\", \"pos\": 6.0, \"vis\": 1.0, \"ms\": 200.0, \"variable\": \"imgurUrl\", \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"title\": \"title\", \"image\": \"imageEncoded\", \"extcmd\": \"Save to Imgur\", \"album\": \"ImgurSettings.album\", \"description\": \"description\", \"ext\": \"Transmitter\" }, { \"b1\": \"5000\", \"cmd\": 153.0, \"obsid\": \"Main\", \"pos\": 7.0, \"vis\": 1.0, \"ms\": 200.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imgurUrl\" }, { \"b1\": \"top\", \"cmd\": 96.0, \"obsid\": \"Main\", \"pos\": 8.0, \"vis\": 1.0, \"ms\": 200.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"ImgurSettings.images\", \"b2\": \"imgurUrl\" }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 9.0, \"vis\": 1.0, \"ms\": 200.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imgurUrl\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 10.0, \"vis\": 0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Delete the Buffer and variables used in the upload process\", \"v0\": 4.0 }, { \"cmd\": 109.0, \"obsid\": \"Main\", \"pos\": 11.0, \"vis\": 1.0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageBuffer\" }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 12.0, \"vis\": 1.0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageBufferSize\" }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 13.0, \"vis\": 1.0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"imageEncoded\" }, { \"b1\": \"=\", \"b3\": \"ImgurSettings\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 14.0, \"vis\": 1.0, \"ms\": 300.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"uploaded\", \"b2\": \"true\" } ], \"press_type\": 0.0, \"x\": 0.33333333333333331482961625624739, \"border\": 2.0, \"image\": \"\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"{\\n\\\"title\\\":\\\"\\\",\\n\\\"description\\\":\\\"\\\"\\n}\", \"deck\": 8.0, \"width\": 0.33333333333333331482961625624739, \"button_id\": \"UploadToImgur\", \"button_duration\": 300.0, \"y\": 0.57142857142857139685077072499553, \"switch_deck\": \"\", \"height\": 0.14285714285714282145711706561997, \"release_list\": [ ], \"functions\": 2113.0, \"stretch\": false }, { \"color\": 11645361.0, \"persistent\": 1.0, \"text\": \"Create Clip\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Attempt to create a clip and add it to the description of the image being uploaded\", \"v0\": 7.0 }, { \"b1\": \"twitchClip\", \"cmd\": 188.0, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"\\\/$ImgurSettings.Twitch$\\\/\" }, { \"b1\": \"5000\", \"cmd\": 153.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"twitchClip\" }, { \"b1\": \"=\", \"b3\": \"UploadToImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 3.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"description\", \"b2\": \"\\\"Taken by \\\"\" }, { \"b1\": \"+=\", \"b3\": \"UploadToImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"description\", \"b2\": \"trigger_user\" }, { \"b53\": \"\", \"b5\": \"\\\"\\\"\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"!=\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"==\", \"b11\": \"\", \"b9\": \"\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"twitchClip\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 0.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 5.0, \"v5\": 0.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 25.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"twitchClip\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"!=\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"\", \"b6\": \"\", \"b10\": \"==\", \"b23\": \"\", \"v4\": 1.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 2.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 0.0, \"v8\": 0.0, \"v2\": 2.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"+=\", \"b3\": \"UploadToImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 6.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"description\", \"b2\": \"\\\" \\\"\" }, { \"b1\": \"+=\", \"b3\": \"UploadToImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 7.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"description\", \"b2\": \"twitchClip\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 8.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"Do the Upload\", \"v0\": 1.0 }, { \"b1\": \"0\", \"cmd\": 132.0, \"obsid\": \"Main\", \"pos\": 9.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"UploadToImgur\", \"v0\": false } ], \"press_type\": 0.0, \"x\": 0.66666666666666662965923251249478, \"border\": 2.0, \"image\": \"\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"{\\n\\\"trigger_user\\\":\\\"Phat32\\\"\\n}\", \"deck\": 8.0, \"width\": 0.22222222222222220988641083749826, \"button_id\": \"CreateTwitchClipForImgur\", \"button_duration\": 0.0, \"y\": 0.57142857142857139685077072499553, \"switch_deck\": \"\", \"height\": 0.14285714285714290472384391250671, \"release_list\": [ ], \"functions\": 2113.0, \"stretch\": false }, { \"color\": 11645361.0, \"persistent\": 1.0, \"text\": \"Create Album\\n(Automatic)\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Get the current date and date being played\", \"v0\": 7.0 }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"user\" }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"channel\" }, { \"cmd\": 138.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 3.0, \"v5\": false, \"v3\": false, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"v7\": true, \"b0\": \"currentDate\", \"v4\": false, \"v0\": true, \"v6\": false, \"v2\": true }, { \"b1\": \"\", \"cmd\": 171.0, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"\\\/$ImgurSettings.Twitch$\\\/\", \"b2\": \"user\" }, { \"b1\": \"2000\", \"cmd\": 153.0, \"obsid\": \"Main\", \"pos\": 5.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"user\" }, { \"b1\": \"channel\", \"cmd\": 174.0, \"obsid\": \"Main\", \"pos\": 6.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"\\\/$user.id$\\\/\" }, { \"b1\": \"2000\", \"cmd\": 153.0, \"obsid\": \"Main\", \"pos\": 7.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"channel\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 8.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"This is my shame. Do not look in it. I was lazy! Things didn't want to work right!\", \"v0\": 6.0 }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 9.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"channel.game_name\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 10.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"\\\" (\\\"\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 11.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"user.display_name\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 12.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"\\\" - \\\"\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 13.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"currentDate\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 14.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"albumName\", \"b2\": \"\\\")\\\"\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 15.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 59.0, \"b0\": \"Create a new Album using the title of the stream as the description and the game being played, the channel name\\nand the current date are used as the title of the album.\\n\\nThis Album URL is saved to ImgurSettings.AlbumUrl\", \"v0\": 1.0 }, { \"cmd\": 0.0, \"obsid\": \"Main\", \"pos\": 16.0, \"vis\": 1.0, \"ms\": 0.0, \"variable\": \"ImgurSettings.album\", \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"title\": \"albumName\", \"extcmd\": \"Create Imgur Album\", \"description\": \"channel.title\", \"variable2\": \"ImgurSettings.AlbumUrl\", \"ext\": \"Transmitter\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 17.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"Setup ImgurSettings.images as an array to store the Urls of all images uploaded over the course of a stream\", \"v0\": 3.0 }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 18.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"ImgurSettings.images\" }, { \"b1\": \"=\", \"b3\": \"ImgurSettings\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 19.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"uploaded\", \"b2\": \"false\" }, { \"cmd\": 17.0, \"obsid\": \"Main\", \"pos\": 20.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"ImgurSettings.images\" } ], \"press_type\": 0.0, \"x\": 0.11111111111111110494320541874913, \"border\": 2.0, \"image\": \"\", \"triggers\": [ { \"turntorealm\": 0.0, \"updatetype\": \"StreamStarted\", \"obs\": \"Any\", \"group_id\": \"\", \"button_id\": \"ImgurAlbumCreation\", \"trg\": 9.0 } ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.22222222222222220988641083749826, \"button_id\": \"ImgurAlbumCreation\", \"button_duration\": 0.0, \"y\": 0.57142857142857139685077072499553, \"switch_deck\": \"\", \"height\": 0.14285714285714282145711706561997, \"release_list\": [ ], \"functions\": 81.0, \"stretch\": false }, { \"color\": 5838016.0, \"persistent\": 0.0, \"text\": \"Share Album Link\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ { \"cmd\": 5.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 61.0, \"b0\": \"Shares a link to view the images in this album. Configure as you see fit. Album link is \\n===========================================\\nhttps:\\\/\\\/imgur.com\\\/a\\\/\\\/$ImgurSettings.album$\\\/\\n===========================================\", \"v0\": 3.0 }, { \"b53\": \"\", \"b5\": \"\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"==\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"==\", \"b11\": \"\", \"b9\": \"\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 1.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 1.0, \"v5\": 0.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 0.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"ImgurSettings.uploaded\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"==\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"true\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"\", \"b6\": \"\", \"b10\": \"==\", \"b23\": \"\", \"v4\": 0.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 1.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 0.0, \"v8\": 0.0, \"v2\": 1.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"\\\/$ImgurSettings.Twitch$\\\/\", \"cmd\": 148.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"Check out all of the Polaroids from todays stream in this album: \\\/$ImgurSettings.AlbumUrl$\\\/\" }, { \"b1\": \"\\\/$ImgurSettings.Twitch$\\\/\", \"cmd\": 148.0, \"obsid\": \"Main\", \"pos\": 3.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"No Album to share from the stream, no Polaroids were taken. Take a look at the Channel Rewards to make some memories!\" } ], \"press_type\": 0.0, \"x\": 0.11111111111111110494320541874913, \"border\": 2.0, \"image\": \"\", \"triggers\": [ { \"sub\": 0.0, \"case_sensitive\": false, \"founder\": 0.0, \"message\": \"!album\", \"moderator\": 0.0, \"group_id\": \"\", \"vip\": 0.0, \"button_id\": \"ImgurAlbumLink\", \"broadcaster\": false, \"trg\": 0.0, \"allow_empty_wildcard\": false }, { \"turntorealm\": 0.0, \"updatetype\": \"StreamStopped\", \"obs\": \"Any\", \"group_id\": \"\", \"button_id\": \"ImgurAlbumLink\", \"trg\": 9.0 } ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.77777777777777767909128669998609, \"button_id\": \"ImgurAlbumLink\", \"button_duration\": 0.0, \"y\": 0.71428571428571430157461463750224, \"switch_deck\": \"\", \"height\": 0.14285714285714284921269268124888, \"release_list\": [ ], \"functions\": 17.0, \"stretch\": 0.0 }, { \"color\": 1617207.0, \"persistent\": 0.0, \"text\": \"Imgur\", \"release_duration\": 0.0, \"queueable\": 0.0, \"command_list\": [ ], \"press_type\": 0.0, \"x\": 0.0, \"border\": 0.0, \"image\": \"\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": 0.0, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.77777777777777779011358916250174, \"button_id\": \"ID127\", \"button_duration\": 0.0, \"y\": 0.0, \"switch_deck\": \"\", \"height\": 0.14285714285714284921269268124888, \"release_list\": [ ], \"functions\": 0.0, \"stretch\": 0.0 }, { \"color\": 1556515.0, \"persistent\": true, \"text\": \"Imgur\\nUpload\", \"release_duration\": 0.0, \"queueable\": false, \"command_list\": [ { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 22.0, \"b0\": \"If using a Channel Point redemption to take and upload the picture, this will get the username and message from\\nthe reward and include it in the post on Imgur\", \"v0\": 20.0 }, { \"b1\": \"message\", \"cmd\": 66.0, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"message\" }, { \"b1\": \"trigger_type\", \"cmd\": 66.0, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"triggerType\" }, { \"b53\": \"\", \"b5\": \"\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"==\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"==\", \"b11\": \"\", \"b9\": \"\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"message\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 1.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 3.0, \"v5\": 2.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 0.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"triggerType\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"==\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"12\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"\\\"\\\"\", \"b6\": \"message\", \"b10\": \"==\", \"b23\": \"\", \"v4\": 2.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 5.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 0.0, \"v8\": 0.0, \"v2\": 1.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"redeemData\", \"cmd\": 66.0, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"redeem\" }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 5.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"trigger_user\", \"b2\": \"redeem.username\" }, { \"b53\": \"\", \"b5\": \"\\\"\\\"\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"!=\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"!=\", \"b11\": \"undefined\", \"b9\": \"redeem.message\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"redeem.message\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 0.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 6.0, \"v5\": 1.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 25.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"redeem.message\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"!=\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"undefined\", \"b6\": \"redeem.message\", \"b10\": \"!=\", \"b23\": \"\", \"v4\": 1.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 1.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 1.0, \"v8\": 0.0, \"v2\": 2.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 7.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"message\", \"b2\": \"redeem.message\" }, { \"b1\": \"\\\/$ImgurSettings.Twitch$\\\/\", \"cmd\": 148.0, \"obsid\": \"Main\", \"pos\": 8.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"\\\/$redeem.username$\\\/ Redeemed \\\/$redeem.title$\\\/ with the message: \\\/$message$\\\/\" }, { \"b1\": \"display_name\", \"cmd\": 66.0, \"obsid\": \"Main\", \"pos\": 9.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"trigger_user\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 10.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 19.0, \"b0\": \"If the message is blank, get 3 random words from a random word API and use that as the text. Totally optional\\nand just needed for my specific use case - Phat32\", \"v0\": 10.0 }, { \"b53\": \"\", \"b5\": \"undefined\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"==\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"!=\", \"b11\": \"undefined\", \"b9\": \"message\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"message\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 0.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 11.0, \"v5\": 1.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0, \"xpan\": 25.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"message\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"==\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"undefined\", \"b6\": \"message\", \"b10\": \"!=\", \"b23\": \"\", \"v4\": 2.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 9.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 1.0, \"v8\": 0.0, \"v2\": 2.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"cmd\": 78.0, \"obsid\": \"Main\", \"pos\": 12.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"randomWords\" }, { \"b1\": \"GET\", \"b3\": \"\", \"cmd\": 169.0, \"obsid\": \"Main\", \"pos\": 13.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"https:\\\/\\\/random-word-api.herokuapp.com\\\/word?number=3\", \"b4\": \"response\", \"b2\": \"\" }, { \"b1\": \"3000\", \"cmd\": 153.0, \"obsid\": \"Main\", \"pos\": 14.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"response\" }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 15.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"message\", \"b2\": \"\\\"\\\"\" }, { \"b1\": \"\\\/$response.result$\\\/\", \"cmd\": 168.0, \"obsid\": \"Main\", \"pos\": 16.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"randomWords\" }, { \"cmd\": 9.0, \"obsid\": \"Main\", \"pos\": 17.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"3\", \"v0\": 3.0 }, { \"b1\": \"top\", \"cmd\": 98.0, \"obsid\": \"Main\", \"pos\": 18.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"randomWords\", \"b2\": \"word\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 19.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"message\", \"b2\": \"word\" }, { \"b1\": \"+=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 20.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"message\", \"b2\": \"\\\" \\\"\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 21.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"If there is no username for one reason or another, set it to ???\", \"v0\": 2.0 }, { \"b53\": \"\", \"b5\": \"undefined\", \"b13\": \"==\", \"v14\": 0.0, \"b36\": \"\", \"b38\": \"\", \"v10\": 0.0, \"b32\": \"\", \"b19\": \"==\", \"b57\": \"\", \"b59\": \"\", \"b17\": \"\", \"b1\": \"==\", \"v18\": 0.0, \"v16\": 0.0, \"b34\": \"==\", \"b7\": \"!=\", \"b11\": \"undefined\", \"b9\": \"trigger_user\", \"b51\": \"\", \"b15\": \"\", \"b3\": \"trigger_user\", \"b55\": \"==\", \"v12\": 0.0, \"cmd\": 7.0, \"b30\": \"\", \"b43\": \"==\", \"v21\": 0.0, \"v1\": 0.0, \"b26\": \"\", \"b28\": \"==\", \"obsid\": \"Main\", \"b22\": \"==\", \"pos\": 22.0, \"v5\": 1.0, \"b47\": \"\", \"b49\": \"==\", \"v3\": 0.0, \"vis\": 1.0, \"b24\": \"\", \"ms\": 0.0, \"b41\": \"\", \"sel\": false, \"b45\": \"\", \"v9\": 0.0, \"dis\": 0.0, \"xpan\": 25.0, \"b20\": \"\", \"v7\": 0.0, \"b33\": \"\", \"v11\": 0.0, \"b16\": \"==\", \"b0\": \"trigger_user\", \"b58\": \"==\", \"b56\": \"\", \"b18\": \"\", \"b4\": \"==\", \"b12\": \"\", \"b52\": \"==\", \"b39\": \"\", \"b37\": \"==\", \"v15\": 0.0, \"b54\": \"\", \"b14\": \"\", \"b2\": \"\", \"b31\": \"==\", \"v13\": 0.0, \"b35\": \"\", \"v17\": 0.0, \"v19\": 0.0, \"b50\": \"\", \"b8\": \"undefined\", \"b6\": \"trigger_user\", \"b10\": \"!=\", \"b23\": \"\", \"v4\": 2.0, \"b48\": \"\", \"b46\": \"==\", \"v20\": 0.0, \"b42\": \"\", \"b29\": \"\", \"v0\": 1.0, \"b27\": \"\", \"b44\": \"\", \"b21\": \"\", \"v6\": 1.0, \"v8\": 0.0, \"v2\": 2.0, \"b25\": \"==\", \"b40\": \"==\", \"v22\": 0.0 }, { \"b1\": \"=\", \"cmd\": 15.0, \"obsid\": \"Main\", \"pos\": 23.0, \"vis\": 1.0, \"ms\": 0.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"trigger_user\", \"b2\": \"\\\"???\\\"\" }, { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 24.0, \"vis\": 0, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"Set the title of the Imgur upload to the message field and trigger the Create Clip button\", \"v0\": 3.0 }, { \"b1\": \"=\", \"b3\": \"UploadToImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 25.0, \"vis\": 1.0, \"ms\": 800.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"title\", \"b2\": \"message\" }, { \"b1\": \"=\", \"b3\": \"CreateTwitchClipForImgur\", \"cmd\": 160.0, \"obsid\": \"Main\", \"pos\": 26.0, \"vis\": 1.0, \"ms\": 800.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"trigger_user\", \"b2\": \"trigger_user\" }, { \"b1\": \"10\", \"cmd\": 132.0, \"obsid\": \"Main\", \"pos\": 27.0, \"vis\": 1.0, \"ms\": 8800.0, \"sel\": false, \"dis\": 0.0, \"xpan\": 0.0, \"b0\": \"CreateTwitchClipForImgur\", \"v0\": false } ], \"press_type\": 0.0, \"x\": 0.33333333333333331482961625624739, \"border\": 2.0, \"image\": \"\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": false, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.33333333333333331482961625624739, \"button_id\": \"ImgurUpload\", \"button_duration\": 8800.0, \"y\": 0.28571428571428569842538536249776, \"switch_deck\": \"\", \"height\": 0.28571428571428569842538536249776, \"release_list\": [ ], \"functions\": 65.0, \"stretch\": false }, { \"color\": 2302912.0, \"persistent\": true, \"text\": \"End\\nNow\", \"release_duration\": 0.0, \"queueable\": false, \"command_list\": [ { \"cmd\": 6.0, \"obsid\": \"Main\", \"pos\": 0.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"Stop all the Imgur buttons that are running\", \"v0\": 5.0 }, { \"cmd\": 133.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 1.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"ImgurUpload\", \"v0\": true, \"v2\": false }, { \"cmd\": 133.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 2.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"UploadToImgur\", \"v0\": true, \"v2\": false }, { \"cmd\": 133.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 3.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"CreateTwitchClipForImgur\", \"v0\": true, \"v2\": false }, { \"cmd\": 133.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 4.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"ImgurAlbumCreation\", \"v0\": true, \"v2\": false }, { \"cmd\": 133.0, \"v1\": true, \"obsid\": \"Main\", \"pos\": 5.0, \"vis\": true, \"ms\": 0.0, \"sel\": false, \"dis\": false, \"xpan\": 0.0, \"b0\": \"ImgurAlbumLink\", \"v0\": true, \"v2\": false } ], \"press_type\": 0.0, \"x\": 0.77777777777777779011358916250174, \"border\": 2.0, \"image\": \"\", \"triggers\": [ ], \"group_id\": \"\", \"overlappable\": false, \"init_variable\": \"\", \"deck\": 8.0, \"width\": 0.22222222222222215437525960624043, \"button_id\": \"ImgurInit\", \"button_duration\": 0.0, \"y\": 0.14285714285714284921269268124888, \"switch_deck\": \"\", \"height\": 0.28571428571428569842538536249776, \"release_list\": [ ], \"functions\": 65.0, \"stretch\": false } ], \"deck_name\": \"Imgur\", \"grid_x\": 9.0, \"stretch\": 0.0 }", "unique_id": "20220312042402638467487", "deck_verification_code": "31c60671cf021c526fd1dc9091ca164c1fe48426", "include_image": { "arrow left.png": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAHg0lEQVR4nO3by24iVxAG4E6EhCUWLP3+zzJPw9KLlozUUrKw8AXDQENfTlV93yoTZyQCzV91qo7\/+fPnz38dUNJm7RcArdpsNt12u+02m59fk2EYuuPx2A3DsNIrm44AgCu22233+vra7Xa7H\/++7\/vucDgIAMjoVPn3+3233+9\/BcBms+ne39+7ruvCdwICAM6cKv9+v++22+3Vn7+8vITvBAQA5Z2f9Xe73cXK\/\/2\/32w23TAMv+YD0cR+9TCB87P+KRAqEACUdeusX4EAoKxbZ\/0KBADlqPxfBADlqPxfBABlqPy\/CQDKUPl\/EwCkNXa\/X5EAIK3K+\/17CQDScda\/nwAgHWf9+wkA0lD5xxMApKHyjycACMuU\/3kCgLBM+Z8nAAjHWX86AoBwnPWnIwAIQ+WfngAgDJV\/egKAZpnyz08A0CxT\/vkJAJrjrL8cAUBznPWXIwBohsq\/PAFAM1T+5QkAVqfyr0cAsDqVfz0CgMXZ77dDALA4+\/12CAAW46zfHgHAYpz12yMAmJ3K3y4BwOxU\/nYJACZnyh+HAGBypvxxCAAm46wfjwBgMs768QgAnqbyxyUAeJrKH5cAYDRT\/jwEAKOZ8uchALibs34+AoC7OevnIwC4SeXPSwBwk8qflwDgKpU\/PwHAVSp\/fgKAT\/b79QgAPtnv1yMAcNYvTADgrF+YAChM5UcAFKbyIwAKMeXnnAAoxJSfcwKgAGd9rhEABTjrc40ASEzl5xYBkJjKzy0CIBFTfsYSAImY8jOWAEjAWZ9HCYAEnPV5lAAITOXnWQIgMJWfZwmAgFR+piIAAlL5mYoACMB+n7kIgADs95mLAGiYsz5zEwANc9ZnbgKgQSo\/SxEADVL5WYoAaIApP2sRAA0w5WctAmBFzvqsTQCsyFmftQmAFaj8tEIArEDlpxUCYAGm\/LRKACzAlJ9WCYAZOevTOgEwI2d9WicAZqDyE4UAmIHKTxQCYEIqP9EIgAmp\/EQjAJ5gv090AuAJ9vtEJwAe4KxPFgLgAc76ZCEARlD5yUYAjKDyk40A+AtTfrITAH9hyk92AuACZ32qEAAXOOtThQD4RuWnGgHwjcpPNaUDwJSf6koHgCk\/1ZUMAGd9+FAyAJz14UOpAFD54adSAaDyw08lAkDlh8tKBIDKD5elDAD7fbhPygCw34f7pAoAZ30YJ1UAOOvDOCkCQOWHx6QIAJUfHhMyAEz5YRohA8CUH6YRKgCc9WFaoQLAWR+mFSIAVH6YR4gAUPlhHiECYLPZdLvdTuWHif279gsA1iMAoDABAIWFCIBhGLq+77u+77thGNZ+OZBGiAA4Ho\/d4XDoDodDdzwe1345kEaILcAwDJ+V\/+Xlpeu67sfvAgCPCdEBnOgEYFqhSuh5J3D65\/PfDgTuE\/Ibc+oEvv868OvrqwCAkUJ+Y753Aqc\/mw3AeKFmANeYDcBjUpRKWwJ4TIoO4EQnAOOkKpG2BDBOym+ELQHcJ+U3wpYA7pNqBnCN2QBcVqIU2hLAZSU6gBOdAPxUqgTqBOCnUh3AiU4APpQsfe4LwIfST7r7AlRX+kl3X4DqSs4ArjEboBol7htbAqrRAVygE6AKpe0CWwKq8CT\/hS0B2XmS\/8KWgOzMAEYwGyAbJWwEWwKy0QE8QCdAFkrXA2wJyMKT+gRbAqLzpD7BloDozAAmZDZANErUhGwJiEYHMAOdAFEoTTPQCRCFDmBGOgFapyTNyH0BWucJXID7ArTKE7gA9wVolRnACswGaIXSswJbAlqhA1iRToC1KTkrsiVgbZ6wBtgSsBZPWANsCViLGUCDzAZYitLSIFsClqIDaJhOgLkpKQ2zJWBunqAAbAmYiycoAFsC5mIGEJDZAFNROgKyJWAqOoDAdAI8S8kITCfAs3QACegEeJRSkYD7AjzKk5GI+wKM5clIxH0BxjIDSMxsgFuUhMRsCbhFB1CAToBrlIICbAm4xidfiC0B53zyhdgScM4MoDCzAUR+YbYE6ADQCRQm6rElKMwnyydbgnp8snyyJajHDICrzAbyE+lcZUuQnw6Am3QCeYlybtIJ5KUD4G46gXxEOHdzXyAfnxijuS+Qh0+M0dwXyMMMgKeZDcQlqnmaLUFcOgAmoxOIR0QzGVuCeHwiTM6WIA6fCJOzJYjDDIDZmQ20SxQzO1uCdukAWIxOoD0imMXYErTHO87ibAna4R1ncbYE7TADYHVmA+sRtazOlmA9OgCaoRNYnoilGTqB5ekAaI5OYDmilea4L7Ac7yTNcl9gft5JmuW+wPzMAAjDbGB6IpQwbAmmpwMgHJ3AdEQn4dgSTMc7RVi2BM\/zThGWLcHzzABIw2xgPBFJGrYE4+kASEcncD\/RSDq2BPfzTpCWLcFt3gnSsiW4zQyAMswGfhOBlGFL8JsOgHJ0Al\/qRh9l6QS+6AAoSyegA6Aw9wUEAJS+L5D\/\/xBuGHtfYBiG7ng8dn3f\/\/h7EQkAOHPqCN7f3y92Aqefv729hZ8dCAA4c202cNL3fff29tb1fb\/Gy5uUAIArzmcDJ6cjQAYCAK44nw1k5B4AFCYAoLD\/AT9V6FqHOO3IAAAAAElFTkSuQmCC", "arrow right.png": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAHi0lEQVR4nO3bu24jRxAF0LYxAAUoYMj\/\/5b9GoUMCJAAATvYHUFLiuIM59XVdU60thI52Fu3q8b\/\/Pr1678CpNRt\/QvMoeu6stvtStf9\/Z9zvV7L5XIp1+t1o98M6tZEAOx2u3I4HMr7+\/tf\/\/50OpWPjw8BAA+EDoB+8u\/3+7Lf7+8CoOu6cj6fSylFE4BvhA6AfvLv9\/uy2+0e\/vzt7U0TgG+EDoCu68r7+\/vd5P\/6834vcD6fP\/9sNwC\/hQ6Aofom0P+FtxuA31IEwNcm0P+z3QCU8u\/Wv8AW+kZwOBy+3R1AFikawK3b3UApmgA5pWwAPU2A7FI2gJ4mQHapG0BPEyCr1A2g53sBshIAX\/hegGwEwBe+FyAbO4Af2A3QOg3gB64EtE4DGEAToFUawACuBLRKAIzgSkBrBMAIrgS0xg5gArsBotMAJnAlIDoNYAaaAFFpADNwJSAqATAjVwKiEQAzciUgGjuABdkNUDsNYEGuBNROA1iBJkCtNIAVaALUSgNYkSZAbTSAFflegNoIgA34XoBaCIAN+F6AWtgBVMBugK1oABVwJWArGkBFNAHWpgFUxJWAtQmACrkSsBYBUCFXAtZiBxCA3QBL0QACcCVgKRpAIJoAc9MAAnElYG4CICBXAuYiAAJyJWAudgANsBvgVRpAA1wJeJUG0BBNgLE0gIZoAoylATRIE2AoDaBBvhdgKAHQMN8L8IwAaJjvBXjGDiARuwFuaQCJuBJwSwNISBOgpwEk5EpATwAk5kqAAEjMlQA7AD7ZDeSjAfDJlSAfDYA7mkAeGgB3XAnyEAA85ErQPgHAQ64E7bMDYDC7gfZoAAzmStAeDYDRNIF2aACMpgm0QwPgZZpAfBoAL\/O9QHwCgMl8LxCXAGAy3wvEZQfA7OwG4tAAmJ0rQRwaAIvRBOqnAbAYV4L6CQAW50pQLwHA4lwJ6mUHwOrsBuqhAbA6V4J6aABsRhPYngbAZlwJticA2JwrwXYEAJtzJdiOHQDVsRtYjwZAdVwJ1qMBUC1NYHkaANXSBJanAVA9TWA5GgDV873AcgQAYfheYH4CgDB8LzA\/OwDCshuYTgMgLFeC6TQAwtMEXqcBEJ4rwesEAM1wJRhPANAMV4Lx7ABolt3AcxoAzXIleE4DoHmawGMaAM1zJXhMAJCGK8E9AUAargT37ABIy25AAyAxVwINAFI3AQ2A9DI3AQ0A\/sjYBDQA+CPj9wICAG5k+l5AAMCNTN8L2AHAEy3vBjQAeKLlK4EGAAO12AQ0ABioxSuBAICRWroSCAAYqaUrgR0ATBR5N6ABwESRrwQaAMwkYhPQAGAmfRO4Xq9\/7QhqpgFAYgIAEhMAkFiMhwoE0H8ReDqdQlwAShEAMJvL5VI+Pj7K8Xgsl8tl619nEAEAE\/WT\/3g8luPxWE6n09a\/0mACACaKOPl7AgBGuv2\/\/06nU7jJ3xMAMFI\/8fu\/8H0gRCQAYKDIb\/1HBAAMFPmt\/4gAgCdanPw9AQBPtDj5ewIAbrS05X9GAMCNlrb8zwgA+KPlt\/4jAgD+aPmt\/4gAIL2Mk78nAEgv4+TvCQDSyjz5ewKAtDJP\/p4AII1M9\/2hBABpZLrvDyUAaJ63\/mMCgOZ56z8mAGiWyf+cAKBZJv9zAoBm2PKPJwBohi3\/eAKA8Lz1XycACM9b\/3UCgLBM\/ukEAGGZ\/NMJAMKw5Z+fACAMW\/75CQCq562\/HAFA9bz1lyMAqJbJvzwBQLVM\/uUJAKpj8q9HAFAdk389AoDNue9vRwCwOff97QgANuOtvz0BwGa89bcnAFidyV8PAcDqTP56CAAWZ8tfLwHA4mz56yUAWIy3fv0EAIvx1q+fAGB2Jn8cAoDZmfxxCAAms+WPSwAwmS1\/XAKAl3nrxycAeJm3fnwCgNFM\/nYIAEYz+dshABjM5G+PAGAwk789AoCH3PfbJwB4yH2\/fQKAO976eQgA7njr5yEA+GTy5yMA+GTy5yMAErPlRwAkZsuPAEjIW5+eAEjIW5+eAEjE5OeWAEjE5OeWAGiYLT\/PCICG2fLzjABokLc+QwmABnnrM5QAaIjJz1gCoCEmP2MJgAaY\/LxKADTA5OdVAiAg933mIgACct9nLgIgEG995iYAAvHWZ24CIACTn6UIgABMfpYiACpky89aBECFbPlZiwCoiLc+axMAFfHWZ20CoAImP1sRABUw+dmKANiALT+1EAAbsOWnFgJgRd761EYArMhbn9oIgBWY\/NRKAKzA5KdWAmBBJj+1EwALMvmpnQCYkfs+0QiAGbnvE40AmIG3PlEJgBl46xOVAJjA5Cc6ATCByU90AmAEW35aIwBGsOWnNQJgAG99WiUABvDWp1UC4AcmP60TAD8w+WmdAPjClp9sBMAXtvxkIwCKtz55CYDirU9eqQPA5Ce71AFg8pNdygAw+eG3lAFg8sNvKQLAfR++lyIA3Pfhe6ED4Hq9ltPpVLquK7vdrnRdd\/dzb314LHQA9JP9fD6Xw+FwFwDe+vCz0AFwvV4\/3\/Vvb2+ff+5568PPQgdAr5\/0j54AwPeaCICvTQAY7t+tfwFgOwIAEvsfSUsrCLAV++8AAAAASUVORK5CYII=" } }
